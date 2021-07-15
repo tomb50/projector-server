@@ -109,10 +109,13 @@ class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEv
     if (!focusedEditorComponent.isShowing) return ServerCaretInfoChangedEvent.CaretInfoChange.NoCarets
 
     val componentLocation = focusedEditorComponent.locationOnScreen
+    val scrollPane = focusedEditor.scrollPane
+    val visibleEditorRect = scrollPane.viewport.viewRect
 
     val focusedEditorView = myViewField.get(focusedEditor) as EditorView
     val nominalLineHeight = focusedEditorView.nominalLineHeight
-    val plainSpaceWidth = focusedEditorView.plainSpaceWidth
+    val lineHeight = focusedEditorView.lineHeight
+    val lineDescent = focusedEditorView.descent
 
     var rootComponent: Component? = focusedEditorComponent
     var editorPWindow: PWindow? = null
@@ -148,19 +151,25 @@ class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEv
             )
           }
 
+        val scrollBarWidth = if (visibleEditorRect.height < focusedEditorComponent.height) // check scrollbar should be visible
+          scrollPane.verticalScrollBar?.width ?: 0
+        else 0
+
         ServerCaretInfoChangedEvent.CaretInfoChange.Carets(
           points,
           fontId = FontCacher.getId(editorFont),
           fontSize = editorFont.size,
           nominalLineHeight = nominalLineHeight,
-          plainSpaceWidth = plainSpaceWidth,
           editorWindowId = editorPWindow.id,
           editorMetrics = CommonRectangle(
-            x = componentLocation.getX(),
-            y = componentLocation.getY(),
-            width = focusedEditorComponent.width.toDouble(),
-            height = focusedEditorComponent.height.toDouble()
-          )
+            x = componentLocation.getX() - rootComponentLocation.x + visibleEditorRect.x,
+            y = componentLocation.getY() - rootComponentLocation.y + visibleEditorRect.y,
+            width = visibleEditorRect.width.toDouble(),
+            height = visibleEditorRect.height.toDouble()
+          ),
+          lineHeight = lineHeight,
+          lineDescent = lineDescent,
+          scrollBarWidth = scrollBarWidth,
         )
       }
     }
