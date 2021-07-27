@@ -26,23 +26,24 @@ plugins {
   `maven-publish`
 }
 
-repositories { maven { url = uri("https://packages.jetbrains.team/maven/p/prj/projector-client") } }
+repositories { maven { url = uri("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies") } }
 
 val usernameProp: String by project
 val passwordProp: String by project
+val versionProp: String by project
 
 publishing {
   publications {
     create<MavenPublication>("maven") {
       groupId = "org.jetbrains.projector"
       artifactId = "projector-awt"
-      version = "-SNAPSHOT"
+      version = versionProp
       from(components["java"])
     }
   }
   repositories {
     maven {
-      url = uri("https://packages.jetbrains.team/maven/p/prj/projector-server")
+      url = uri("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
       credentials {
         username = usernameProp
         password = passwordProp

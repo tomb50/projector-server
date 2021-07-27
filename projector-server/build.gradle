@@ -39,13 +39,13 @@ publishing {
     maven(MavenPublication) {
       groupId = "org.jetbrains.projector"
       artifactId = "projector-server"
-      version = "-SNAPSHOT"
+      version = versionProp
       from components.java
     }
   }
   repositories {
     maven {
-      url "https://packages.jetbrains.team/maven/p/prj/projector-server"
+      url "https://packages.jetbrains.team/maven/p/ij/intellij-dependencies"
       credentials {
         username = usernameProp
         password = passwordProp
