@@ -99,6 +99,7 @@ if (serverTargetClasspath != null && serverClassToLaunch != null) {
       "--add-opens=java.desktop/java.awt=ALL-UNNAMED",
       "--add-opens=java.desktop/sun.font=ALL-UNNAMED",
       "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+      "-Djava.system.class.loader=org.jetbrains.projector.util.loading.ProjectorClassLoader",
     ] + relayArgs
   }
 }
@@ -135,6 +136,7 @@ if (ideaPath != null) {
       "--add-opens=java.base/java.lang=ALL-UNNAMED",
       "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
       "-Djdk.attach.allowAttachSelf=true",
+      "-Djava.system.class.loader=org.jetbrains.projector.util.loading.ProjectorClassLoader",
     ] + relayArgs
   }
 }

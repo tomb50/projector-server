@@ -75,6 +75,7 @@ if (serverTargetClasspath != null && serverClassToLaunch != null) {
       "-Dswing.bufferPerWindow=false",
       "-Dorg.jetbrains.projector.agent.path=${project.file("build/libs/${project.name}-${project.version}.jar")}",
       "-Dorg.jetbrains.projector.agent.classToLaunch=$serverClassToLaunch",
+      "-Djava.system.class.loader=org.jetbrains.projector.util.loading.ProjectorClassLoader",
     ]
     dependsOn(jar)
   }
@@ -103,6 +104,7 @@ if (ideaPath != null) {
       "-Didea.paths.selector=ProjectorIntelliJIdea2019.3",
       "-Didea.jre.check=true",
       "-Didea.is.internal=true",
+      "-Djava.system.class.loader=org.jetbrains.projector.util.loading.ProjectorClassLoader",
       "--add-exports=java.base/jdk.internal.vm=ALL-UNNAMED",
       "--add-opens=java.desktop/java.awt=ALL-UNNAMED",
       "--add-opens=java.desktop/sun.font=ALL-UNNAMED",

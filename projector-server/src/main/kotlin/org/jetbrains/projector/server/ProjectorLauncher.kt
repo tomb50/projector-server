@@ -23,6 +23,7 @@
  */
 package org.jetbrains.projector.server
 
+import org.jetbrains.projector.server.core.classloader.initClassLoader
 import org.jetbrains.projector.server.service.ProjectorFontProvider
 import java.lang.reflect.Method
 import kotlin.system.exitProcess
@@ -35,6 +36,8 @@ object ProjectorLauncher {
 
   @JvmStatic
   fun main(args: Array<String>) {
+    initClassLoader(javaClass.classLoader)
+
     val canonicalMainClassName = requireNotNull(System.getProperty(MAIN_CLASS_PROPERTY_NAME)) {
       "System property `$MAIN_CLASS_PROPERTY_NAME` isn't assigned, so can't understand which class to launch"
     }
@@ -67,6 +70,7 @@ object ProjectorLauncher {
     ProjectorFontProvider.isAgent = false
   }
 
+  // "invoked from CWM code as the generic launcher can't be used there"
   @JvmStatic
   fun runProjectorServer(): Boolean {
     System.setProperty(ProjectorServer.ENABLE_PROPERTY_NAME, true.toString())
