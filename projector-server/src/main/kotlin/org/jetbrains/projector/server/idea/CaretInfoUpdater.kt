@@ -25,6 +25,9 @@
 
 package org.jetbrains.projector.server.idea
 
+import com.intellij.openapi.editor.ex.util.EditorUtil
+import com.intellij.openapi.editor.impl.EditorImpl
+import com.intellij.openapi.editor.impl.view.EditorView
 import org.jetbrains.projector.awt.PWindow
 import org.jetbrains.projector.awt.peer.PComponentPeer
 import org.jetbrains.projector.common.protocol.data.CommonRectangle
@@ -37,21 +40,16 @@ import org.jetbrains.projector.util.loading.unprotect
 import org.jetbrains.projector.util.logging.Logger
 import sun.awt.AWTAccessor
 import java.awt.Component
-import java.awt.Font
-import java.awt.geom.Point2D
 import java.awt.peer.ComponentPeer
 import java.lang.reflect.Field
-import javax.swing.text.JTextComponent
 import kotlin.concurrent.thread
 
 class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEvent.CaretInfoChange) -> Unit) {
 
   private lateinit var thread: Thread
 
-  private lateinit var ideaClassLoader: ClassLoader
-
   private val editorImplClass by lazy {
-    Class.forName("com.intellij.openapi.editor.impl.EditorImpl", false, ideaClassLoader)
+    EditorImpl::class.java
   }
 
   private val ourCaretBlinkingCommandField by lazy {
@@ -62,14 +60,8 @@ class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEv
 
   private val myEditorField by lazy {
     Class
-      .forName("com.intellij.openapi.editor.impl.EditorImpl\$RepaintCursorCommand", false, ideaClassLoader)
+      .forName("com.intellij.openapi.editor.impl.EditorImpl\$RepaintCursorCommand")
       .getDeclaredField("myEditor")
-      .apply(Field::unprotect)
-  }
-
-  private val myEditorComponentField by lazy {
-    editorImplClass
-      .getDeclaredField("myEditorComponent")
       .apply(Field::unprotect)
   }
 
@@ -81,39 +73,15 @@ class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEv
 
   private val myLocationsField by lazy {
     Class
-      .forName("com.intellij.openapi.editor.impl.EditorImpl\$CaretCursor", false, ideaClassLoader)
+      .forName("com.intellij.openapi.editor.impl.EditorImpl\$CaretCursor")
       .getDeclaredField("myLocations")
       .apply(Field::unprotect)
-  }
-
-  private val myPointField by lazy {
-    Class
-      .forName("com.intellij.openapi.editor.impl.EditorImpl\$CaretRectangle", false, ideaClassLoader)
-      .getDeclaredField("myPoint")
-  }
-
-  private val getEditorFontMethod by lazy {
-    Class
-      .forName("com.intellij.openapi.editor.ex.util.EditorUtil", false, ideaClassLoader)
-      .getDeclaredMethod("getEditorFont")
   }
 
   private val myViewField by lazy {
     editorImplClass
       .getDeclaredField("myView")
       .apply(Field::unprotect)
-  }
-
-  private val editorViewClass by lazy {
-    Class.forName("com.intellij.openapi.editor.impl.view.EditorView", false, ideaClassLoader)
-  }
-
-  private val getNominalLineHeightMethod by lazy {
-    editorViewClass.getDeclaredMethod("getNominalLineHeight")
-  }
-
-  private val getPlainSpaceWidthMethod by lazy {
-    editorViewClass.getDeclaredMethod("getPlainSpaceWidth")
   }
 
   private var errorOccurred = false
@@ -132,19 +100,19 @@ class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEv
   }
 
   private fun loadCaretInfo(): ServerCaretInfoChangedEvent.CaretInfoChange {
-    val editorFont = getEditorFontMethod.invoke(null) as Font
+    val editorFont = EditorUtil.getEditorFont()
 
     val focusedCaretBlinkingCommand = ourCaretBlinkingCommandField.get(null)
-    val focusedEditor = myEditorField.get(focusedCaretBlinkingCommand)
-    val focusedEditorComponent = myEditorComponentField.get(focusedEditor) as JTextComponent
+    val focusedEditor = myEditorField.get(focusedCaretBlinkingCommand) as EditorImpl
+    val focusedEditorComponent = focusedEditor.contentComponent
 
     if (!focusedEditorComponent.isShowing) return ServerCaretInfoChangedEvent.CaretInfoChange.NoCarets
 
     val componentLocation = focusedEditorComponent.locationOnScreen
 
-    val focusedEditorView = myViewField.get(focusedEditor)
-    val nominalLineHeight = getNominalLineHeightMethod.invoke(focusedEditorView) as Int
-    val plainSpaceWidth = getPlainSpaceWidthMethod.invoke(focusedEditorView) as Float
+    val focusedEditorView = myViewField.get(focusedEditor) as EditorView
+    val nominalLineHeight = focusedEditorView.nominalLineHeight
+    val plainSpaceWidth = focusedEditorView.plainSpaceWidth
 
     var rootComponent: Component? = focusedEditorComponent
     var editorPWindow: PWindow? = null
@@ -170,13 +138,12 @@ class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEv
         val focusedLocations = myLocationsField.get(focusedCaretCursor) as Array<*>
         val points = focusedLocations
           .filterNotNull()
-          .map(myPointField::get)
-          .map { it as Point2D }
           .map {
+            val point = (it as EditorImpl.CaretRectangle).myPoint
             CaretInfo(
               Point(
-                x = componentLocation.x - rootComponentLocation.x + it.x,
-                y = componentLocation.y - rootComponentLocation.y + it.y
+                x = componentLocation.x - rootComponentLocation.x + point.x,
+                y = componentLocation.y - rootComponentLocation.y + point.y
               )
             )
           }
@@ -200,9 +167,7 @@ class CaretInfoUpdater(private val onCaretInfoChanged: (ServerCaretInfoChangedEv
   }
 
   fun start() {
-    invokeWhenIdeaIsInitialized("search for editors") { ideaClassLoader ->
-      this.ideaClassLoader = ideaClassLoader
-
+    invokeWhenIdeaIsInitialized("search for editors") {
       thread = thread(isDaemon = true) {
         while (!Thread.currentThread().isInterrupted) {
           try {
